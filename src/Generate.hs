@@ -66,7 +66,7 @@ runGenerate dir = do
     Prelude.putStrLn "Warning, some files are failed to be parsed"
     Prelude.print files_failed
 
-  
+
   -- Output all files in json form for later analysis.
   results <- for files_parsed $ \f -> do
     steps <- fmap parsePhases $ T.readFile (rebuildFilePath f)
@@ -84,7 +84,7 @@ runGenerate dir = do
   -- FIXME: put this file back later
   -- encodeFile (output </> "stats_by_package" <.> "json") stats_by_package
   for_ (Map.toList stats_by_package) $ \(package, stat) -> do
-    let headers = Set.toList $ Set.fromList 
+    let headers = Set.toList $ Set.fromList
            [ phaseName
            | (_, steps) <- Map.toList stat
            , Phase{..} <- steps
@@ -94,16 +94,16 @@ runGenerate dir = do
                  , Prelude.map (\n -> Map.lookup n by_phase) headers)
                | (GhcFile{..}, steps) <- Map.toList stat
                , let total = Prelude.sum [phaseTime | Phase{..} <- steps]
-               , let by_phase =  Map.fromListWith (+) 
+               , let by_phase =  Map.fromListWith (+)
                                     [ (phaseName, phaseTime)
                                     | Phase{..} <- steps
                                     ]
                , then sortWith by (Down total)
                ]
-    mkHtmlFile ("./tmp/" <> package <> ".html")
+    mkHtmlFile (output <> "/" <> package <> ".html")
       $ Report.packageTable package headers rows
     let bs = Csv.encodeHeader (V.fromList ("module": "total": Prelude.map T.encodeUtf8 headers))
-             <> mconcat (Prelude.map Csv.encodeRecord 
+             <> mconcat (Prelude.map Csv.encodeRecord
                [ Prelude.map T.encodeUtf8 $ T.pack (joinPath modulePath):(showt total):Prelude.map showt cols
                | (GhcFile{..}, total, cols) <- rows
                ])
@@ -111,10 +111,11 @@ runGenerate dir = do
        $ Builder.toLazyByteString bs
   -- Prelude.print byPackage
   -- Report.
-  mkHtmlFile "./tmp/index.html"
+  mkHtmlFile (output <> "/index.html")
     $ Report.index $ Map.keys stats_by_package
-  copyFile "files/main.css" "./tmp/main.css" -- TODO use data files
+  copyFile "files/main.css" (output <> "/main.css") -- TODO use data files
   where
+    output :: IsString a => a
     output = "./tmp"
 
 -- ** Helpers
@@ -133,6 +134,6 @@ findDumpTimings input = do
 mkHtmlFile :: FilePath -> Markup -> IO ()
 mkHtmlFile fn markup = do
   B.writeFile fn "" -- TODO: properly cleanup the file
-  renderMarkupToByteStringIO 
+  renderMarkupToByteStringIO
     (B.appendFile fn) -- TODO: keep handle opened instead of reopening each time.
     markup
